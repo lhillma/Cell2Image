@@ -119,6 +119,22 @@ def get_cell_type_by_id(frame: SimulationFrame, cell_id: int) -> int:
     return frame.cell_type[frame.cell_id == cell_id][0]
 
 
+def get_motility_labels(cluster_id: np.ndarray, indices: np.ndarray):
+    """
+    Get the motility labels for a given set of indices
+
+    Args:
+        cluster_id (np.ndarray): The cluster ids
+        indices (np.ndarray): The indices of the active clusters
+
+    Returns:
+        np.ndarray: The motility labels
+    """
+    cluster_id_sorted = np.sort(np.unique(cluster_id))
+    active_clusters = cluster_id_sorted[indices]
+    return np.where(np.isin(cluster_id, active_clusters), 1, 0)
+
+
 @njit
 def get_cell_neighbour_ids(
     cell_ids: np.ndarray, cell_id: int, neighbour_order=1
