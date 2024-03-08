@@ -43,13 +43,7 @@ def crop_cell_neighbourhood(
     Returns:
         np.ndarray: The cropped image
     """
-    cx, cy = np.where(cell_ids == cell_id)
-    cx = int(cx.mean())
-    cy = int(cy.mean())
-
-    image = np.roll(np.roll(image_in.copy(), cx, axis=0), cy, axis=1)[0:size, 0:size]
-
-    return image[:, :, np.newaxis] * np.array([255, 255, 255], dtype=np.uint8)
+    return _shift_image_to_centre(image_in, cell_ids, cell_id, size)
 
 
 def crop_cell_and_neighbours(
@@ -102,7 +96,7 @@ def crop_cells_by_id(
         s_cell_id, s_cell_id.shape, np.array(list(additional_cells) + [central_cell_id])
     )
 
-    return image[:, :, np.newaxis] * np.array([255, 255, 255], dtype=np.uint8)
+    return image
 
 
 def get_cell_type_by_id(frame: SimulationFrame, cell_id: int) -> int:
@@ -224,6 +218,46 @@ def get_cell_outlines(
                 continue
 
     return img
+
+
+def _shift_image_to_centre(
+    image: np.ndarray, cell_ids: np.ndarray, cell_id: int, size: int = -1
+) -> np.ndarray:
+    """
+    Shift the cell ids such that the given cell is in the center of the image
+
+    Args:
+        cell_ids (np.ndarray): The cell ids
+        cell_id (int): The id of the cell to shift to the center
+        size (int, optional): The size of the image. Defaults to -1.
+
+    Returns:
+        np.ndarray: The shifted cell ids
+    """
+    if size < 0:
+        size = np.min(cell_ids.shape)
+    s_image = image.copy()
+    s_cell_id = cell_ids.copy()
+    cx, cy = np.where(cell_ids == cell_id)
+    dx = cx.max() - cx.min()
+    dy = cy.max() - cy.min()
+
+    if dx > cell_ids.shape[0] / 2:
+        s_image = np.roll(s_image, int(cell_ids.shape[0] / 2), axis=0)
+        s_cell_id = np.roll(s_cell_id, int(cell_ids.shape[0] / 2), axis=0)
+
+    if dy > cell_ids.shape[1] / 2:
+        s_image = np.roll(s_image, int(cell_ids.shape[1] / 2), axis=1)
+        s_cell_id = np.roll(s_cell_id, int(cell_ids.shape[1] / 2), axis=1)
+
+    cx, cy = np.where(s_cell_id == cell_id)
+    cx = cx.mean()
+    cy = cy.mean()
+
+    s_image = np.roll(
+        np.roll(s_image, int(-cx + size / 2), axis=0), int(-cy + size / 2), axis=1
+    )[0:size, 0:size]
+    return s_image
 
 
 def _shift_cell_id_to_centre(
