@@ -25,7 +25,7 @@ def read_vtk_frame(vtk_path: Path) -> SimulationFrame:
 
 
 def crop_cell_neighbourhood(
-    image_in: np.ndarray, frame: SimulationFrame, cell_id: int, size: int = 50
+    image_in: np.ndarray, cell_ids: np.ndarray, cell_id: int, size: int = 50
 ) -> np.ndarray:
     """
     Crop a size x size area from `image_in` around a cell and its neighbours
@@ -43,7 +43,7 @@ def crop_cell_neighbourhood(
     Returns:
         np.ndarray: The cropped image
     """
-    cx, cy = np.where(frame.cell_id == cell_id)
+    cx, cy = np.where(cell_ids == cell_id)
     cx = int(cx.mean())
     cy = int(cy.mean())
 
@@ -53,7 +53,7 @@ def crop_cell_neighbourhood(
 
 
 def crop_cell_and_neighbours(
-    frame: SimulationFrame, cell_id: int, neighbour_order=1, size: int = 50
+    cell_ids: np.ndarray, cell_id: int, neighbour_order=1, size: int = 50
 ) -> np.ndarray:
     """
     Crop a size x size area from `image_in` around a cell and its neighbours
@@ -73,12 +73,12 @@ def crop_cell_and_neighbours(
     Returns:
         np.ndarray: The cropped image
     """
-    neighbours = get_cell_neighbour_ids(frame.cell_id, cell_id, neighbour_order)
-    return crop_cells_by_id(frame, cell_id, neighbours, size)
+    neighbours = get_cell_neighbour_ids(cell_ids, cell_id, neighbour_order)
+    return crop_cells_by_id(cell_ids, cell_id, neighbours, size)
 
 
 def crop_cells_by_id(
-    frame: SimulationFrame,
+    cell_ids: np.ndarray,
     central_cell_id: int,
     additional_cells: set = set(),
     size: int = 50,
@@ -96,7 +96,7 @@ def crop_cells_by_id(
     Returns:
         np.ndarray: The cropped image
     """
-    s_cell_id = _shift_cell_id_to_centre(frame.cell_id, central_cell_id, size)
+    s_cell_id = _shift_cell_id_to_centre(cell_ids, central_cell_id, size)
 
     image = get_cell_outlines(
         s_cell_id, s_cell_id.shape, np.array(list(additional_cells) + [central_cell_id])
