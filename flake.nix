@@ -39,6 +39,7 @@
               virtualenv
               ffmpeg-python
               ffmpy
+              tqdm
             ]))
             neovim
           ] ++ pythonDevPkgs;
