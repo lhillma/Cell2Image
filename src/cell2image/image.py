@@ -176,7 +176,6 @@ def get_cell_neighbour_ids(
 def get_cell_outlines(
     cell_id: np.ndarray, dim: tuple[int, int], cell_ids: np.ndarray | None = None
 ) -> np.ndarray:
-    img = np.ones(dim, dtype=np.uint8)
     """
     Extract an image of the cell outlines from a simulation frame.
 
@@ -198,6 +197,7 @@ def get_cell_outlines(
     Returns:
         np.ndarray: The extracted image
     """
+    img = np.ones(dim, dtype=np.uint8)
 
     for x in range(dim[0]):
         for y in range(dim[1]):
