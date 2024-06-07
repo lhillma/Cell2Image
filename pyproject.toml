@@ -17,3 +17,6 @@ dependencies = [
     "ffmpy",
     "tqdm",
 ]
+
+[project.scripts]
+c2i-video = "cell2image.video_renderer:main"
