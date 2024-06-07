@@ -35,6 +35,29 @@ def main(
     _check_color_available(cyt_color)
     _check_color_available(nuc_color)
 
+    render_video(vtk_files, cyt_type, cyt_color, nuc_type, nuc_color, output)
+
+
+def render_video(
+    vtk_files: list[Path],
+    cyt_type: int = 1,
+    cyt_color: str = "green",
+    nuc_type: int = 2,
+    nuc_color: str = "green",
+    output: str = "output.mp4",
+) -> None:
+    """
+    Render the video from the vtk files.
+
+    Args:
+        vtk_files (list[Path]): List of vtk files
+        cyt_type (int, optional): Cell type id of the cytoplasm. Defaults to 1.
+        cyt_color (str, optional): Color of the cytoplasm. Defaults to "green".
+        nuc_type (int, optional): Cell type id of the nucleus. Defaults to 2.
+        nuc_color (str, optional): Color of the nucleus. Defaults to "green".
+        output (str, optional): Output file name. Defaults to "output.mp4".
+    """
+
     n_color = np.array(mcolors.to_rgb(mcolors.CSS4_COLORS[nuc_color]))
     c_color = np.array(mcolors.to_rgb(mcolors.CSS4_COLORS[cyt_color]))
 
