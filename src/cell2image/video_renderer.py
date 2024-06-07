@@ -83,7 +83,7 @@ def render_video(
 
     ff = ffmpy.FFmpeg(
         inputs={"pipe:0": "-y -f image2pipe -r 25"},
-        outputs={output: None},
+        outputs={output: "-c:v libx264 -pix_fmt yuv420p -movflags faststart"},
     )
     ff.run(input_data=images.getbuffer())
 
