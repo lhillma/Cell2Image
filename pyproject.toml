@@ -1,22 +1,25 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "cell2image"
-version = "0.3.1"
-description = "Toolbox for converting cell data to images"
-readme = "README.md"
-requires-python = ">=3.10"
-dependencies = [
-    "numpy",
-    "vtk",
-    "pillow",
-    "matplotlib",
-    "numba",
-    "ffmpy",
-    "tqdm",
+version = "0.1.0"
+description = ""
+authors = ["Leon Hillmann <l.hillmann@tue.nl>"]
+# readme = "README.md"
+# license = "BSD"
+packages = [
+  { include = "cell2image" }
 ]
 
-[project.scripts]
-c2i-video = "cell2image.video_renderer:main"
+[tool.poetry.dependencies]
+python = "^3.10"
+numba = "^0.60.0"
+matplotlib = "^3.9.2"
+click = "^8.1.7"
+vtk = "^9.3.1"
+pillow = "^10.4.0"
+ffmpeg-python = "^0.2.0"
+# ffmpy = "^0.4.0"
+tqdm = "^4.66.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
