@@ -41,7 +41,6 @@
               ffmpy
               tqdm
             ]))
-            neovim
           ] ++ pythonDevPkgs;
           shellHook = ''
             # Allow the use of wheels.
