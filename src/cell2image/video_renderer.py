@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-from cell2image.image import get_cell_outlines, read_vtk_frame
+from cell2image.image import SimulationFrame, get_cell_outlines, read_vtk_frame
 
 
 @click.command()
@@ -38,13 +38,33 @@ def main(
     _check_color_available(cyt_color)
     _check_color_available(nuc_color)
 
-    render_video(vtk_files, cyt_type, cyt_color, nuc_type, nuc_color, output, scale)
+    render_video_from_file_list(
+        vtk_files,
+        cyt_type=cyt_type,
+        cyt_color=cyt_color,
+        nuc_type=nuc_type,
+        nuc_color=nuc_color,
+        output=output,
+        scale=scale,
+    )
+
+
+def render_video_from_file_list(vtk_files: list[Path], **kwargs) -> None:
+    """
+    Render the video from a list of local vtk files.
+
+    Args:
+        vtk_files (list[Path]): List of vtk files
+        **kwargs: Keyword arguments to pass to render_video
+    """
+    frames = [read_vtk_frame(file) for file in vtk_files]
+    render_video(frames, **kwargs)
 
 
 def render_video(
-    vtk_files: list[Path],
+    frames: list[SimulationFrame],
     cyt_type: int = 1,
-    cyt_color: str = "green",
+    cyt_color: str = "blue",
     nuc_type: int = 2,
     nuc_color: str = "green",
     output: str = "output.mp4",
@@ -66,8 +86,7 @@ def render_video(
     c_color = np.array(mcolors.to_rgb(mcolors.CSS4_COLORS.get(cyt_color, cyt_color)))
 
     images = io.BytesIO()
-    for vtk_file in tqdm(vtk_files[10:]):
-        frame = read_vtk_frame(vtk_file)
+    for frame in tqdm(frames):
         outlines = get_cell_outlines(frame.cell_id, frame.cell_id.shape)
         cytoplasm = (
             np.ones(outlines.shape + (3,))
