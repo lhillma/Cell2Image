@@ -1,14 +1,15 @@
 import io
-import ffmpy
-import click
+import sys
 from pathlib import Path
-from PIL import Image
-from tqdm import tqdm
+
+import click
+import ffmpy
 import matplotlib.colors as mcolors
 import numpy as np
-import sys
+from PIL import Image
+from tqdm import tqdm
 
-from .image import get_cell_outlines, read_vtk_frame
+from cell2image.image import get_cell_outlines, read_vtk_frame
 
 
 @click.command()
@@ -20,6 +21,7 @@ from .image import get_cell_outlines, read_vtk_frame
 @click.option("--nuc-color", default="green", help="Color of the nucleus")
 @click.option("--cyt-type", default=1, help="Cell type id of the cytoplasm")
 @click.option("--nuc-type", default=2, help="Cell type id of the nucleus")
+@click.option("--scale", default=1, help="Upscale the image")
 def main(
     input_dir: str,
     output: str,
@@ -27,6 +29,7 @@ def main(
     nuc_color: str,
     cyt_type: int,
     nuc_type: int,
+    scale: float,
 ) -> None:
     input_path = Path(input_dir)
     vtk_files = list(input_path.glob("**/*.vtk"))
@@ -35,7 +38,7 @@ def main(
     _check_color_available(cyt_color)
     _check_color_available(nuc_color)
 
-    render_video(vtk_files, cyt_type, cyt_color, nuc_type, nuc_color, output)
+    render_video(vtk_files, cyt_type, cyt_color, nuc_type, nuc_color, output, scale)
 
 
 def render_video(
@@ -45,6 +48,7 @@ def render_video(
     nuc_type: int = 2,
     nuc_color: str = "green",
     output: str = "output.mp4",
+    scale: float = 1,
 ) -> None:
     """
     Render the video from the vtk files.
@@ -58,11 +62,11 @@ def render_video(
         output (str, optional): Output file name. Defaults to "output.mp4".
     """
 
-    n_color = np.array(mcolors.to_rgb(mcolors.CSS4_COLORS[nuc_color]))
-    c_color = np.array(mcolors.to_rgb(mcolors.CSS4_COLORS[cyt_color]))
+    n_color = np.array(mcolors.to_rgb(mcolors.CSS4_COLORS.get(nuc_color, nuc_color)))
+    c_color = np.array(mcolors.to_rgb(mcolors.CSS4_COLORS.get(cyt_color, cyt_color)))
 
     images = io.BytesIO()
-    for vtk_file in tqdm(vtk_files):
+    for vtk_file in tqdm(vtk_files[10:]):
         frame = read_vtk_frame(vtk_file)
         outlines = get_cell_outlines(frame.cell_id, frame.cell_id.shape)
         cytoplasm = (
@@ -79,6 +83,10 @@ def render_video(
         outlines = np.clip(outlines[:, :, None] * (cytoplasm + nucleus), 0, 1)
 
         image = Image.fromarray((outlines * 255).astype(np.uint8))
+        image = image.resize(
+            (int(image.width * scale), int(image.height * scale)),
+            Image.Resampling.NEAREST,
+        )
         image.save(images, format="png")
 
     ff = ffmpy.FFmpeg(
@@ -92,6 +100,8 @@ def _check_color_available(color: str) -> None:
     """
     Check if the color is available in matplotlib CSS4 colors and exit if it is not.
     """
+    if color.startswith("#"):
+        return
     if color in mcolors.CSS4_COLORS:
         return
 
