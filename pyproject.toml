@@ -9,13 +9,14 @@ description = "Toolbox for converting cell data to images"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "numpy",
-    "vtk",
-    "pillow",
+    "click"
+    "ffmpy",
     "matplotlib",
     "numba",
-    "ffmpy",
+    "numpy",
+    "pillow",
     "tqdm",
+    "vtk",
 ]
 
 [project.scripts]
