@@ -9,7 +9,7 @@ description = "Toolbox for converting cell data to images"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "click"
+    "click",
     "ffmpy",
     "matplotlib",
     "numba",
