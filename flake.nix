@@ -17,6 +17,7 @@
           python3Packages.python-lsp-black
           python3Packages.python-lsp-server
           python3Packages.rope
+          python3Packages.pytest
         ];
 
         project = pyproject-nix.lib.project.loadPyproject {
@@ -29,17 +30,17 @@
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             (pkgs.python3.withPackages (p: with p; [
-              numpy
-              matplotlib
-              ipython
               click
-              vtk
-              pillow
-              numba
-              virtualenv
               ffmpeg-python
               ffmpy
+              ipython
+              matplotlib
+              numba
+              numpy
+              pillow
               tqdm
+              virtualenv
+              vtk
             ]))
           ] ++ pythonDevPkgs;
           shellHook = ''
