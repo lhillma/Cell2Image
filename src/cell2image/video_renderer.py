@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-from cell2image.image import SimulationFrame, get_cell_outlines, read_vtk_frame
+from cell2image.image import SimulationFrame, frame_to_image, read_vtk_frame
 
 
 @click.command()
@@ -87,19 +87,7 @@ def render_video(
 
     images = io.BytesIO()
     for frame in tqdm(frames):
-        outlines = get_cell_outlines(frame.cell_id, frame.cell_id.shape)
-        cytoplasm = (
-            np.ones(outlines.shape + (3,))
-            * (frame.cell_type[:, :, None] == cyt_type)
-            * c_color[None, None, :]
-        )
-        nucleus = (
-            np.ones(outlines.shape + (3,))
-            * (frame.cell_type[:, :, None] == nuc_type)
-            * n_color[None, None, :]
-        )
-
-        outlines = np.clip(outlines[:, :, None] * (cytoplasm + nucleus), 0, 1)
+        outlines = frame_to_image(frame, cyt_type, c_color, nuc_type, n_color)
 
         image = Image.fromarray((outlines * 255).astype(np.uint8))
         image = image.resize(

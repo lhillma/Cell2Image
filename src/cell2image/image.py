@@ -1,8 +1,9 @@
 from pathlib import Path
+
 import numpy as np
 import vtk
-from vtk.numpy_interface import dataset_adapter as dsa
 from numba import njit, uint64
+from vtk.numpy_interface import dataset_adapter as dsa
 
 from .types import SimulationFrame
 
@@ -22,6 +23,42 @@ def read_vtk_frame(vtk_path: Path) -> SimulationFrame:
     step = _get_step_from_path(vtk_path)
     cell_type, cell_id, cluster_id = _vtk_to_numpy(vtk_path)
     return SimulationFrame(step, cell_type, cell_id, cluster_id)
+
+
+def frame_to_image(
+    frame: SimulationFrame,
+    cyt_type: int,
+    c_color: np.ndarray,
+    nuc_type: int,
+    n_color: np.ndarray,
+) -> np.ndarray:
+    """
+    Convert a SimulationFrame to an image with cell outlines
+
+    Args:
+        frame (SimulationFrame): The frame to convert
+        cyt_type (int): The cell type id of the cytoplasm
+        c_color (np.ndarray): The color of the cytoplasm (RGB array)
+        nuc_type (int): The cell type id of the nucleus
+        n_color (np.ndarray): The color of the nucleus (RGB array)
+
+    Returns:
+        np.ndarray: The image with cell outlines as RGB array
+    """
+    outlines = get_cell_outlines(frame.cell_id, frame.cell_id.shape)
+    cytoplasm = (
+        np.ones(outlines.shape + (3,))
+        * (frame.cell_type[:, :, None] == cyt_type)
+        * c_color[None, None, :]
+    )
+    nucleus = (
+        np.ones(outlines.shape + (3,))
+        * (frame.cell_type[:, :, None] == nuc_type)
+        * n_color[None, None, :]
+    )
+
+    outlines = np.clip(outlines[:, :, None] * (cytoplasm + nucleus), 0, 1)
+    return outlines
 
 
 def crop_cell_neighbourhood(
