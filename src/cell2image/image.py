@@ -31,6 +31,8 @@ def frame_to_image(
     c_color: np.ndarray,
     nuc_type: int,
     n_color: np.ndarray,
+    plot_cell_outlines: bool = True,
+    plot_nuclear_outlines: bool = True,
 ) -> np.ndarray:
     """
     Convert a SimulationFrame to an image with cell outlines
@@ -41,11 +43,27 @@ def frame_to_image(
         c_color (np.ndarray): The color of the cytoplasm (RGB array)
         nuc_type (int): The cell type id of the nucleus
         n_color (np.ndarray): The color of the nucleus (RGB array)
+        plot_cell_outlines (bool, optional): Whether to include cell outlines.
+            Defaults to True.
+        plot_nuclear_outlines (bool, optional): Whether to include nuclear
+            outlines. Defaults to True.
 
     Returns:
         np.ndarray: The image with cell outlines as RGB array
     """
-    outlines = get_cell_outlines(frame.cell_id, frame.cell_id.shape)
+    cell_outlines = get_cell_outlines(frame.cluster_id, frame.cluster_id.shape)
+    all_outlines = get_cell_outlines(frame.cell_id, frame.cell_id.shape)
+    nuclear_outlines = (all_outlines == cell_outlines).astype(np.uint8)
+    outlines = (
+        cell_outlines
+        if plot_cell_outlines
+        else np.ones(cell_outlines.shape, dtype=np.uint8)
+    ) * (
+        nuclear_outlines
+        if plot_nuclear_outlines
+        else np.ones(nuclear_outlines.shape, dtype=np.uint8)
+    )
+
     cytoplasm = (
         np.ones(outlines.shape + (3,))
         * (frame.cell_type[:, :, None] == cyt_type)
