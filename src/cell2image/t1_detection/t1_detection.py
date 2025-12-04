@@ -1,3 +1,12 @@
+from numba import njit
+
+
+@njit
+def edge(node1: int, node2: int) -> tuple[int, int]:
+    """Return a sorted edge tuple."""
+    return (node1, node2) if node1 < node2 else (node2, node1)
+
+
 def edges_from_adj(adj: dict[int, set[int]]) -> set[tuple[int, int]]:
     """Convert adjacency list to a set of edges.
 
@@ -21,17 +30,20 @@ def edges_from_adj(adj: dict[int, set[int]]) -> set[tuple[int, int]]:
     return edges
 
 
-def edge(node1: int, node2: int) -> tuple[int, int]:
-    """Return a sorted edge tuple."""
-    return (node1, node2) if node1 < node2 else (node2, node1)
-
-
+@njit
 def detect_t1_events(
-    adj1: dict[int, set[int]], adj2: dict[int, set[int]]
+    edges1: set[tuple[int, int]], edges2: set[tuple[int, int]]
 ) -> list[tuple[int, int, int, int]]:
-    edges1 = edges_from_adj(adj1)
-    edges2 = edges_from_adj(adj2)
+    """
+    Detect T1 events between two sets of edges.
 
+    Parameters:
+    -----------
+    edges1 : set[tuple[int, int]]
+        Set of edges at time point 1.
+    edges2 : set[tuple[int, int]]
+        Set of edges at time point 2.
+    """
     lost_edges = edges1 - edges2
     gained_edges = edges2 - edges1
     common_edges = edges1 & edges2

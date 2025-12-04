@@ -26,7 +26,9 @@ def test_simple_t1():
         3: {1, 2, 4},
         4: {1, 3},
     }
-    t1_events = detect_t1_events(adj1, adj2)
+    edges1 = edges_from_adj(adj1)
+    edges2 = edges_from_adj(adj2)
+    t1_events = detect_t1_events(edges1, edges2)
     assert len(t1_events) == 1
     assert t1_events[0] == (1, 2, 3, 4)
 
@@ -40,6 +42,8 @@ def test_simple_t1_with_extra():
         4: {1, 3},
         5: {1, 2},
     }
-    t1_events = detect_t1_events(adj1, adj2)
+    edges1 = edges_from_adj(adj1)
+    edges2 = edges_from_adj(adj2)
+    t1_events = detect_t1_events(edges1, edges2)
     assert len(t1_events) == 1
     assert t1_events[0] == (1, 2, 3, 4)
