@@ -1,4 +1,16 @@
-from cell2image.t1_detection import detect_t1_events
+from cell2image.t1_detection import detect_t1_events, edges_from_adj
+
+
+def test_edges_from_adj():
+    adj = {
+        1: {2, 4},
+        2: {1, 3, 4},
+        3: {2, 4},
+        4: {1, 2, 3},
+    }
+    edges = edges_from_adj(adj)
+    expected_edges = {(1, 2), (1, 4), (2, 3), (2, 4), (3, 4)}
+    assert edges == expected_edges
 
 
 def test_simple_t1():
