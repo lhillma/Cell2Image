@@ -24,7 +24,6 @@
           python3Packages.python-lsp-black
           python3Packages.python-lsp-server
           python3Packages.rope
-          python3Packages.pytest
         ];
 
         project = pyproject-nix.lib.project.loadPyproject {
