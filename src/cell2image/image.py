@@ -217,6 +217,16 @@ def get_cell_neighbour_ids(
                 if y < cell_ids.shape[1] - 1 and cell_ids[x, y + 1] != cell_id:
                     neighbours.add(uint64(cell_ids[x, y + 1]))
 
+                # Periodic boundary conditions
+                if x == 0 and cell_ids[cell_ids.shape[0] - 1, y] != cell_id:
+                    neighbours.add(uint64(cell_ids[cell_ids.shape[0] - 1, y]))
+                if x == cell_ids.shape[0] - 1 and cell_ids[0, y] != cell_id:
+                    neighbours.add(uint64(cell_ids[0, y]))
+                if y == 0 and cell_ids[x, cell_ids.shape[1] - 1] != cell_id:
+                    neighbours.add(uint64(cell_ids[x, cell_ids.shape[1] - 1]))
+                if y == cell_ids.shape[1] - 1 and cell_ids[x, 0] != cell_id:
+                    neighbours.add(uint64(cell_ids[x, 0]))
+
     if neighbour_order > 1:
         new_neighbours = set()
         for n in neighbours:

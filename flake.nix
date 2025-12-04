@@ -5,19 +5,25 @@
   inputs.pyproject-nix.url = "github:nix-community/pyproject.nix";
   inputs.pyproject-nix.inputs.nixpkgs.follows = "nixpkgs";
 
-  outputs = { self, nixpkgs, flake-utils, pyproject-nix }:
-  flake-utils.lib.eachDefaultSystem
-    (system:
-      let
-        pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+    pyproject-nix,
+  }:
+    flake-utils.lib.eachDefaultSystem
+    (
+      system: let
+        pkgs = import nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
         # system_mpfm = import mpfm { inherit system; };
         pythonDevPkgs = with pkgs; [
-          nodePackages.pyright
           python3Packages.pylsp-rope
           python3Packages.python-lsp-black
           python3Packages.python-lsp-server
           python3Packages.rope
-          python3Packages.pytest
         ];
 
         project = pyproject-nix.lib.project.loadPyproject {
@@ -25,24 +31,26 @@
         };
         python = pkgs.python3;
       in rec {
-
         # take the mpfm pyShellCuda dev shell
         devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            (pkgs.python3.withPackages (p: with p; [
-              click
-              ffmpeg-python
-              ffmpy
-              ipython
-              matplotlib
-              numba
-              numpy
-              pillow
-              tqdm
-              virtualenv
-              vtk
-            ]))
-          ] ++ pythonDevPkgs;
+          packages = with pkgs;
+            [
+              (pkgs.python3.withPackages (p:
+                with p; [
+                  click
+                  ffmpeg-python
+                  ffmpy
+                  ipython
+                  matplotlib
+                  numba
+                  numpy
+                  pillow
+                  tqdm
+                  virtualenv
+                  vtk
+                ]))
+            ]
+            ++ pythonDevPkgs;
           shellHook = ''
             # Allow the use of wheels.
             SOURCE_DATE_EPOCH=$(date +%s)
@@ -58,14 +66,13 @@
           '';
         };
 
-        packages.default =
-          let
-            # Returns an attribute set that can be passed to `buildPythonPackage`.
-            attrs = project.renderers.buildPythonPackage { inherit python; };
-          in
+        packages.default = let
+          # Returns an attribute set that can be passed to `buildPythonPackage`.
+          attrs = project.renderers.buildPythonPackage {inherit python;};
+        in
           # Pass attributes to buildPythonPackage.
-            # Here is a good spot to add on any missing or custom attributes.
-          python.pkgs.buildPythonPackage (attrs);
+          # Here is a good spot to add on any missing or custom attributes.
+          python.pkgs.buildPythonPackage attrs;
       }
     );
 }
