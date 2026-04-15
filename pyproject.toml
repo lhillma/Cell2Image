@@ -11,12 +11,13 @@ requires-python = ">=3.10"
 dependencies = [
     "click",
     "ffmpy",
+    "h5py",
     "matplotlib",
     "numba",
     "numpy",
-    "scipy",
-    "scikit-image",
     "pillow",
+    "scikit-image",
+    "scipy",
     "tqdm",
     "vtk",
 ]

@@ -40,6 +40,7 @@
                   click
                   ffmpeg-python
                   ffmpy
+                  h5py
                   ipython
                   matplotlib
                   numba
