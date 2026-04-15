@@ -9,47 +9,69 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-from cell2image.image import SimulationFrame, frame_to_image, read_vtk_frame
+from cell2image.image import (
+    SimulationFrame,
+    frame_to_image,
+    read_h5_lattice_snapshots,
+    read_vtk_frame,
+)
 
 
 @click.command()
-@click.argument("input_dir", type=click.Path(exists=True))
+@click.argument(
+    "in_path",
+    type=click.Path(exists=True),
+)
 @click.option(
     "--output", type=click.Path(), default="output.mp4", help="Output file name"
 )
-@click.option("--cyt-color", default="blue", help="Color of the cytoplasm")
-@click.option("--nuc-color", default="green", help="Color of the nucleus")
-@click.option("--cyt-type", default=1, help="Cell type id of the cytoplasm")
-@click.option("--nuc-type", default=2, help="Cell type id of the nucleus")
+@click.option(
+    "--color",
+    "-c",
+    "colors",
+    type=(int, str),
+    multiple=True,
+    help="Cell type and color pairs (e.g. -c 1 red -c 2 blue)",
+    default=[(1, "blue"), (2, "green")],
+)
 @click.option("--scale", default=1, help="Upscale the image")
 def main(
-    input_dir: str,
+    in_path: str,
     output: str,
-    cyt_color: str,
-    nuc_color: str,
-    cyt_type: int,
-    nuc_type: int,
+    colors: list[tuple[int, str]],
     scale: float,
 ) -> None:
-    input_path = Path(input_dir)
-    vtk_files = list(input_path.glob("**/*.vtk"))
-    vtk_files.sort()
+    input_path = Path(in_path)
 
-    _check_color_available(cyt_color)
-    _check_color_available(nuc_color)
+    type_colors = {c_type: color for c_type, color in colors}
 
-    render_video_from_file_list(
-        vtk_files,
-        cyt_type=cyt_type,
-        cyt_color=cyt_color,
-        nuc_type=nuc_type,
-        nuc_color=nuc_color,
-        output=output,
-        scale=scale,
-    )
+    if input_path.is_file() and input_path.suffix == ".h5":
+        render_video_from_h5_file(
+            input_path,
+            type_colors=type_colors,
+            output=output,
+            scale=scale,
+        )
+    elif input_path.is_dir():
+        render_video_from_vtk_directory(
+            input_path,
+            type_colors=type_colors,
+            output=output,
+            scale=scale,
+        )
+    else:
+        print(
+            "Input path must be a directory containing vtk files or a single h5 file."
+        )
+        sys.exit(1)
 
 
-def render_video_from_file_list(vtk_files: list[Path], **kwargs) -> None:
+def render_video_from_vtk_directory(
+    input_path: Path,
+    type_colors: dict[int, str],
+    output: str,
+    scale: float,
+) -> None:
     """
     Render the video from a list of local vtk files.
 
@@ -57,16 +79,31 @@ def render_video_from_file_list(vtk_files: list[Path], **kwargs) -> None:
         vtk_files (list[Path]): List of vtk files
         **kwargs: Keyword arguments to pass to render_video
     """
+    vtk_files = list(input_path.glob("**/*.vtk"))
+    vtk_files.sort()
     frames = [read_vtk_frame(file) for file in vtk_files]
-    render_video(frames, **kwargs)
+    render_video(frames, type_colors=type_colors, output=output, scale=scale)
+
+
+def render_video_from_h5_file(
+    input_path: Path,
+    type_colors: dict[int, str],
+    output: str,
+    scale: float,
+) -> None:
+    """
+    Render the video from a single h5 file.
+    Args:
+        input_path (Path): Path to the h5 file
+        **kwargs: Keyword arguments to pass to render_video
+    """
+    frames = read_h5_lattice_snapshots(input_path)
+    render_video(frames, type_colors=type_colors, output=output, scale=scale)
 
 
 def render_video(
     frames: list[SimulationFrame],
-    cyt_type: int = 1,
-    cyt_color: str = "blue",
-    nuc_type: int = 2,
-    nuc_color: str = "green",
+    type_colors: dict[int, str],
     output: str = "output.mp4",
     scale: float = 1,
 ) -> None:
@@ -82,12 +119,13 @@ def render_video(
         output (str, optional): Output file name. Defaults to "output.mp4".
     """
 
-    n_color = np.array(mcolors.to_rgb(mcolors.CSS4_COLORS.get(nuc_color, nuc_color)))
-    c_color = np.array(mcolors.to_rgb(mcolors.CSS4_COLORS.get(cyt_color, cyt_color)))
+    colors = {
+        c_type: _convert_color_to_rgb(color) for c_type, color in type_colors.items()
+    }
 
     images = io.BytesIO()
     for frame in tqdm(frames):
-        outlines = frame_to_image(frame, cyt_type, c_color, nuc_type, n_color)
+        outlines = frame_to_image(frame, colors)
 
         image = Image.fromarray((outlines * 255).astype(np.uint8))
         image = image.resize(
@@ -120,6 +158,17 @@ def _check_color_available(color: str) -> None:
         "Check the list of available colors at: https://matplotlib.org/stable/gallery/color/named_colors.html#css-colors"
     )
     sys.exit(1)
+
+
+def _convert_color_to_rgb(color: str) -> np.ndarray:
+    """
+    Convert a color string or a numpy array to an RGB numpy array.
+    Args:
+        color (str | list[float]): Color string or list of RGB values
+    Returns:
+        np.ndarray: RGB color as a numpy array
+    """
+    return np.array(mcolors.to_rgb(mcolors.CSS4_COLORS.get(color, color)))
 
 
 if __name__ == "__main__":

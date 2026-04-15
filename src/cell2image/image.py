@@ -1,5 +1,7 @@
 from pathlib import Path
+from typing import cast
 
+import h5py
 import numpy as np
 import vtk
 from numba import njit, uint64
@@ -25,12 +27,37 @@ def read_vtk_frame(vtk_path: Path) -> SimulationFrame:
     return SimulationFrame(step, cell_type, cell_id, cluster_id)
 
 
+def read_h5_lattice_snapshots(file_path: Path) -> list[SimulationFrame]:
+    """
+    Read all frames from an h5 file containing lattice snapshots
+    Args:
+        file_path (Path): Path to the h5 file
+
+    Returns:
+        list[SimulationFrame]: A list of SimulationFrames containing the parsed frames
+    """
+    with h5py.File(file_path, "r") as f:
+        frames: list[SimulationFrame] = []
+        batch_size = int(f.attrs["batch_size"])
+        for batch_name in f.keys():
+            batch = f[batch_name]
+            timesteps: np.ndarray = cast(np.ndarray, batch.attrs["timestep"])
+            cell_types = cast(np.ndarray, batch[f"cell_type"][:])
+            cell_ids = cast(np.ndarray, batch[f"cell_id"][:])
+            cluster_ids = cast(np.ndarray, batch[f"cluster_id"][:])
+            for i in range(batch_size):
+                step = timesteps[i]
+                cell_type = cell_types[i]
+                cell_id = cell_ids[i]
+                cluster_id = cluster_ids[i]
+                frames.append(SimulationFrame(step, cell_type, cell_id, cluster_id))
+
+    return frames
+
+
 def frame_to_image(
     frame: SimulationFrame,
-    cyt_type: int,
-    c_color: np.ndarray,
-    nuc_type: int,
-    n_color: np.ndarray,
+    colors: dict[int, np.ndarray],
     plot_cell_outlines: bool = True,
     plot_nuclear_outlines: bool = True,
 ) -> np.ndarray:
@@ -64,18 +91,15 @@ def frame_to_image(
         else np.ones(nuclear_outlines.shape, dtype=np.uint8)
     )
 
-    cytoplasm = (
-        np.ones(outlines.shape + (3,))
-        * (frame.cell_type[:, :, None] == cyt_type)
-        * c_color[None, None, :]
-    )
-    nucleus = (
-        np.ones(outlines.shape + (3,))
-        * (frame.cell_type[:, :, None] == nuc_type)
-        * n_color[None, None, :]
-    )
+    colored_types: list[np.ndarray] = []
+    for cell_type_id, color in colors.items():
+        colored_types.append(
+            np.ones(outlines.shape + (3,))
+            * (frame.cell_type[:, :, None] == cell_type_id)
+            * color[None, None, :]
+        )
 
-    outlines = np.clip(outlines[:, :, None] * (cytoplasm + nucleus), 0, 1)
+    outlines = np.clip(outlines[:, :, None] * sum(colored_types), 0, 1)
     return outlines
 
 

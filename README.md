@@ -52,7 +52,13 @@ of vtk files:
 c2i-video /path/to/simulation/output --output output.mp4
 ```
 
-This command will create a video `output.mp4` from the vtk files in the directory
+You can also create a video from a h5 data file containing lattice data:
+
+```bash
+c2i-video /path/to/lattice.h5 --output output.mp4
+```
+
+These commands will create a video `output.mp4` from the vtk files in the directory
 `/path/to/simulation/output`. Note that the command finds all vtk files even in
 subdirectories, so it is sufficient to point to the top level output directory of your
 simulation - no need to add `/cc3d_output/LatticeData` ;)
@@ -62,15 +68,14 @@ of `c2i-video --help`:
 
 ```bash
 > c2i-video --help
-Usage: c2i-video [OPTIONS] INPUT_DIR
+Usage: c2i-video [OPTIONS] IN_PATH
 
 Options:
-  --output PATH       Output file name
-  --cyt-color TEXT    Color of the cytoplasm
-  --nuc-color TEXT    Color of the nucleus
-  --cyt-type INTEGER  Cell type id of the cytoplasm
-  --nuc-type INTEGER  Cell type id of the nucleus
-  --help              Show this message and exit.
+  --output PATH                  Output file name
+  -c, --color <INTEGER TEXT>...  Cell type and color pairs (e.g. -c 1 red -c 2
+                                 blue)
+  --scale INTEGER                Upscale the image
+  --help                         Show this message and exit.
 ```
 
 ### Creating a video in Python
@@ -81,10 +86,9 @@ You can also create a video from a list of vtk files directly in Python with the
 ```python
 from cell2image.video_renderer import render_video
 
-# List of vtk files
-vtk_files = ['file1.vtk', 'file2.vtk', 'file3.vtk']
+# ... load a list of simulation frames
 
-render_video(vtk_files, output='output.mp4')
+render_video(frames, type_colors = {1: "blue", 2: "green"}, output='output.mp4')
 ```
 This code will create a video `output.mp4` from the vtk files in the list.
 Have a look at the docstring of the `render_video` function for more information on
