@@ -9,7 +9,7 @@ model to (binary) images.
 Install the package with pip:
 
 ```bash
-pip install git@https://github.com/lhillma/Cell2Image.git
+pip install git+https://github.com/lhillma/Cell2Image.git
 ```
 
 To use the video creation functionality, you need to install the `ffmpeg` package.
