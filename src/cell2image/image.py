@@ -39,7 +39,9 @@ def read_h5_lattice_snapshots(file_path: Path) -> list[SimulationFrame]:
     with h5py.File(file_path, "r") as f:
         frames: list[SimulationFrame] = []
         batch_size = int(f.attrs["batch_size"])
-        for batch_name in f.keys():
+        n_batches = len(f.keys())
+        for batch_number in range(n_batches):
+            batch_name = f"batch_{batch_number}"
             batch = f[batch_name]
             timesteps: np.ndarray = cast(np.ndarray, batch.attrs["timestep"])
             cell_types = cast(np.ndarray, batch[f"cell_type"][:])
