@@ -77,3 +77,38 @@ render_video(frames, type_colors = {1: "blue", 2: "green"}, output='output.mp4')
 This code will create a video `output.mp4` from the vtk files in the list.
 Have a look at the docstring of the `render_video` function for more information on
 the available parameters.
+
+### Measuring cell shape properties
+
+You can measure the area, perimeter, and shape index of individual cells using
+the `cell2image.shape` module. First, load a simulation frame, then create a
+perimeter estimator and compute the metrics:
+
+```python
+from pathlib import Path
+from cell2image.image import read_h5_lattice_snapshots
+from cell2image.shape import (
+    get_perimeter_estimator,
+    calc_area,
+    calc_shape_index,
+)
+
+frame_list = read_h5_lattice_snapshots(Path("/path/to/simulation/lattice.h5"))
+frame = frame_list[0]  # get the first simulation frame
+field = frame.cell_id  # label array where each cell has a unique integer id
+
+# Create a perimeter estimator (default is neighbour_order=8)
+perimeter_estimator = get_perimeter_estimator()
+
+# Measure a cell by its id (e.g. cell 100)
+cell_id = 100
+area = calc_area(field, cell_id)
+perimeter_value = perimeter_estimator(field, cell_id)
+shape_index = calc_shape_index(field, cell_id, perimeter_estimator)
+
+print(f"Area: {area}, Perimeter: {perimeter_value:.2f}, Shape index: {shape_index:.3f}")
+```
+
+The shape index is defined as `perimeter / sqrt(area)`, which provides a
+dimensionless measure of how compact a cell is (a circle has the lowest value of
+~3.54).
