@@ -62,6 +62,36 @@ Options:
   --help                         Show this message and exit.
 ```
 
+### Exporting individual frames in the command line
+
+The `c2i-frame` command renders one or more individual frames to PNG images instead
+of a video. It accepts the same kind of input as `c2i-video` (a directory of vtk
+files or a single h5 file), plus a single vtk file for exporting just that frame:
+
+```bash
+# Single vtk file: render just that one frame
+c2i-frame /path/to/simulation/output/Step_0005000.vtk --output frames/
+
+# Directory of vtk files or an h5 file: pick one frame by its position...
+c2i-frame /path/to/simulation/output --frame 5 --output frames/
+c2i-frame /path/to/lattice.h5 --frame 5 --output frames/
+
+# ...or a range of frames (inclusive, 0-based)
+c2i-frame /path/to/simulation/output --range 0 10 --output frames/
+```
+
+`--frame` and `--range` refer to the 0-based position of a frame in file order
+(sorted vtk file name, or position within the h5 file) - not the simulation step
+number. Exactly one of `--frame`/`--range` is required when the input is a
+directory or an h5 file, since both of those contain multiple frames; neither is
+allowed when exporting a single vtk file, since there is only one frame to export.
+
+Rendered images are written to the `--output` directory (created if needed) and
+named after the simulation step of each frame, e.g. `frame_5000.png`.
+
+`--color` and `--scale` behave exactly as they do for `c2i-video`; see
+`c2i-frame --help` for the full list of options.
+
 ### Creating a video in Python
 
 You can also create a video from a list of vtk files directly in Python with the

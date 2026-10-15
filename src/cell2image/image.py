@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import cast
+from typing import Iterable, cast
 
 import h5py
 import numpy as np
@@ -27,32 +27,56 @@ def read_vtk_frame(vtk_path: Path) -> SimulationFrame:
     return SimulationFrame(step, cell_type, cell_id, cluster_id)
 
 
-def read_h5_lattice_snapshots(file_path: Path) -> list[SimulationFrame]:
+def read_h5_lattice_snapshots(
+    file_path: Path, frame_indices: Iterable[int] | None = None
+) -> list[SimulationFrame]:
     """
-    Read all frames from an h5 file containing lattice snapshots
+    Read frames from an h5 file containing lattice snapshots
+
     Args:
         file_path (Path): Path to the h5 file
+        frame_indices (Iterable[int], optional): The positional indices (0-based,
+            in file order) of the frames to read. Defaults to None, which reads
+            all frames. Only the batches overlapping the requested indices are
+            read from disk.
 
     Returns:
-        list[SimulationFrame]: A list of SimulationFrames containing the parsed frames
+        list[SimulationFrame]: A list of SimulationFrames containing the parsed
+            frames, in ascending order of their position in the file
     """
+    wanted = None if frame_indices is None else set(frame_indices)
+
     with h5py.File(file_path, "r") as f:
         frames: list[SimulationFrame] = []
         batch_size = int(f.attrs["batch_size"])
         n_batches = len(f.keys())
+        global_index = 0
         for batch_number in range(n_batches):
             batch_name = f"batch_{batch_number}"
             batch = f[batch_name]
+
+            if wanted is None:
+                local_indices = list(range(batch_size))
+            else:
+                local_indices = sorted(
+                    i for i in range(batch_size) if (global_index + i) in wanted
+                )
+                if not local_indices:
+                    global_index += batch_size
+                    continue
+
             timesteps: np.ndarray = cast(np.ndarray, batch.attrs["timestep"])
-            cell_types = cast(np.ndarray, batch[f"cell_type"][:])
-            cell_ids = cast(np.ndarray, batch[f"cell_id"][:])
-            cluster_ids = cast(np.ndarray, batch[f"cluster_id"][:])
-            for i in range(batch_size):
+            cell_types = cast(np.ndarray, batch["cell_type"][local_indices])
+            cell_ids = cast(np.ndarray, batch["cell_id"][local_indices])
+            cluster_ids = cast(np.ndarray, batch["cluster_id"][local_indices])
+            for local_i, i in enumerate(local_indices):
                 step = timesteps[i]
-                cell_type = cell_types[i]
-                cell_id = cell_ids[i]
-                cluster_id = cluster_ids[i]
+                cell_type = cell_types[local_i]
+                cell_id = cell_ids[local_i]
+                cluster_id = cluster_ids[local_i]
                 frames.append(SimulationFrame(step, cell_type, cell_id, cluster_id))
+
+            global_index += batch_size
 
     return frames
 

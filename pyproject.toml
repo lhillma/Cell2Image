@@ -24,3 +24,4 @@ dependencies = [
 
 [project.scripts]
 c2i-video = "cell2image.video_renderer:main"
+c2i-frame = "cell2image.frame_exporter:main"

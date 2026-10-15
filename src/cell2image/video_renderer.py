@@ -4,17 +4,10 @@ from pathlib import Path
 
 import click
 import ffmpy
-import matplotlib.colors as mcolors
-import numpy as np
-from PIL import Image
 from tqdm import tqdm
 
-from cell2image.image import (
-    SimulationFrame,
-    frame_to_image,
-    read_h5_lattice_snapshots,
-    read_vtk_frame,
-)
+from cell2image.image import SimulationFrame, read_h5_lattice_snapshots, read_vtk_frame
+from cell2image.rendering import list_vtk_files, parse_type_colors, render_frame_image
 
 
 @click.command()
@@ -79,8 +72,7 @@ def render_video_from_vtk_directory(
         vtk_files (list[Path]): List of vtk files
         **kwargs: Keyword arguments to pass to render_video
     """
-    vtk_files = list(input_path.glob("**/*.vtk"))
-    vtk_files.sort()
+    vtk_files = list_vtk_files(input_path)
     frames = [read_vtk_frame(file) for file in vtk_files]
     render_video(frames, type_colors=type_colors, output=output, scale=scale)
 
@@ -119,19 +111,11 @@ def render_video(
         output (str, optional): Output file name. Defaults to "output.mp4".
     """
 
-    colors = {
-        c_type: _convert_color_to_rgb(color) for c_type, color in type_colors.items()
-    }
+    colors = parse_type_colors(list(type_colors.items()))
 
     images = io.BytesIO()
     for frame in tqdm(frames):
-        outlines = frame_to_image(frame, colors)
-
-        image = Image.fromarray((outlines * 255).astype(np.uint8))
-        image = image.resize(
-            (int(image.width * scale), int(image.height * scale)),
-            Image.Resampling.NEAREST,
-        )
+        image = render_frame_image(frame, colors, scale)
         image.save(images, format="png")
 
     ff = ffmpy.FFmpeg(
@@ -139,36 +123,6 @@ def render_video(
         outputs={output: "-c:v libx264 -pix_fmt yuv420p -movflags faststart"},
     )
     ff.run(input_data=images.getbuffer())
-
-
-def _check_color_available(color: str) -> None:
-    """
-    Check if the color is available in matplotlib CSS4 colors and exit if it is not.
-    """
-    if color.startswith("#"):
-        return
-    if color in mcolors.CSS4_COLORS:
-        return
-
-    print(f"Color {color} is not available in matplotlib CSS4 colors.")
-    print("Available colors are:")
-    print(list(mcolors.CSS4_COLORS.keys()))
-    print()
-    print(
-        "Check the list of available colors at: https://matplotlib.org/stable/gallery/color/named_colors.html#css-colors"
-    )
-    sys.exit(1)
-
-
-def _convert_color_to_rgb(color: str) -> np.ndarray:
-    """
-    Convert a color string or a numpy array to an RGB numpy array.
-    Args:
-        color (str | list[float]): Color string or list of RGB values
-    Returns:
-        np.ndarray: RGB color as a numpy array
-    """
-    return np.array(mcolors.to_rgb(mcolors.CSS4_COLORS.get(color, color)))
 
 
 if __name__ == "__main__":
