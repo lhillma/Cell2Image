@@ -16,7 +16,6 @@ dependencies = [
     "numba",
     "numpy",
     "pillow",
-    "scikit-image",
     "scipy",
     "tqdm",
     "vtk",
