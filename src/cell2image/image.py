@@ -3,9 +3,7 @@ from typing import Iterable, cast
 
 import h5py
 import numpy as np
-import vtk
 from numba import njit, uint64
-from vtk.numpy_interface import dataset_adapter as dsa
 
 from .types import SimulationFrame
 
@@ -422,7 +420,18 @@ def _vtk_to_numpy(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     Returns:
         tuple[np.ndarray, np.ndarray, np.ndarray]: The parsed cell type, cell id and
             cluster id
+
+    Raises:
+        ImportError: If vtk is not installed (install cell2image[vtk]).
     """
+    try:
+        import vtk
+        from vtk.numpy_interface import dataset_adapter as dsa
+    except ImportError as e:
+        raise ImportError(
+            "Reading vtk files requires vtk: pip install 'cell2image[vtk]'"
+        ) from e
+
     reader = vtk.vtkStructuredPointsReader()
     reader.SetFileName(path.as_posix())
     reader.ReadAllVectorsOn()
