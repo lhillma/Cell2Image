@@ -104,6 +104,23 @@ named after the simulation step of each frame, e.g. `frame_5000.png`.
 `--color` and `--scale` behave exactly as they do for `c2i-video`; see
 `c2i-frame --help` for the full list of options.
 
+### Outlines and scaling
+
+Both commands share the options that control how frames are drawn:
+
+| option | default | effect |
+|---|---|---|
+| `--scale` | 1 | upscale the rendered image, outlines included |
+| `--grid-scale` | 1 | upscale the lattice *before* rendering: every site becomes a `grid-scale` × `grid-scale` block, and the outlines are drawn at `--line-width` pixels, so they are thin relative to the cells |
+| `--line-order`, `-lo` | 1 | neighbour order in which a pixel looks for pixels of other cells to decide whether it is on an outline (1: von Neumann, 2: Moore, 3: also distance 2, ...) |
+| `--line-width`, `-lw` | 2 | outline width in pixels of the (grid-scaled) lattice; both cells along a boundary are marked, and for odd widths the extra pixel goes to the cell with the larger id |
+
+For example, `c2i-video lattice.h5 --grid-scale 4 -lw 1` draws one-pixel outlines on a
+lattice upscaled four times, where `--scale 4` would draw them eight pixels wide. The
+defaults reproduce the outlines of earlier versions. In Python, the same settings are
+the `grid_scale`, `neighbour_order` and `line_width` arguments of `render_video`,
+`render_frame_image`, `frame_to_image` and `get_cell_outlines`.
+
 ### Creating a video in Python
 
 You can also create a video from a list of vtk files directly in Python with the

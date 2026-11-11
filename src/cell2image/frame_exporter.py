@@ -6,7 +6,12 @@ import numpy as np
 from tqdm import tqdm
 
 from cell2image.image import read_h5_lattice_snapshots, read_vtk_frame
-from cell2image.rendering import list_vtk_files, parse_type_colors, render_frame_image
+from cell2image.rendering import (
+    list_vtk_files,
+    parse_type_colors,
+    render_frame_image,
+    render_options,
+)
 from cell2image.types import SimulationFrame
 
 
@@ -32,7 +37,7 @@ from cell2image.types import SimulationFrame
     help="Cell type and color pairs (e.g. -c 1 red -c 2 blue)",
     default=[(1, "blue"), (2, "green")],
 )
-@click.option("--scale", default=1, help="Upscale the image")
+@render_options
 @click.option(
     "--frame",
     "frame_index",
@@ -62,6 +67,9 @@ def main(
     scale: float,
     frame_index: int | None,
     frame_range: tuple[int, int] | None,
+    grid_scale: int,
+    neighbour_order: int,
+    line_width: int,
 ) -> None:
     input_path = Path(in_path)
     out_dir = Path(output_dir)
@@ -71,25 +79,30 @@ def main(
         sys.exit(1)
 
     type_colors = parse_type_colors(list(colors))
+    render_kwargs = dict(
+        grid_scale=grid_scale,
+        neighbour_order=neighbour_order,
+        line_width=line_width,
+    )
 
     if input_path.is_file() and input_path.suffix == ".h5":
         indices = _require_indices(
             frame_index, frame_range, "exporting frames from an h5 file"
         )
-        export_frames_from_h5_file(input_path, indices, type_colors, out_dir, scale)
+        export_frames_from_h5_file(
+            input_path, indices, type_colors, out_dir, scale, **render_kwargs
+        )
     elif input_path.is_file() and input_path.suffix == ".vtk":
         if frame_index is not None or frame_range is not None:
-            print(
-                "--frame and --range are not valid when exporting a single vtk file."
-            )
+            print("--frame and --range are not valid when exporting a single vtk file.")
             sys.exit(1)
-        export_single_vtk_file(input_path, type_colors, out_dir, scale)
+        export_single_vtk_file(input_path, type_colors, out_dir, scale, **render_kwargs)
     elif input_path.is_dir():
         indices = _require_indices(
             frame_index, frame_range, "exporting frames from a directory of vtk files"
         )
         export_frames_from_vtk_directory(
-            input_path, indices, type_colors, out_dir, scale
+            input_path, indices, type_colors, out_dir, scale, **render_kwargs
         )
     else:
         print(
@@ -104,6 +117,9 @@ def export_single_vtk_file(
     type_colors: dict[int, np.ndarray],
     out_dir: Path,
     scale: float,
+    grid_scale: int = 1,
+    neighbour_order: int = 1,
+    line_width: int = 2,
 ) -> None:
     """
     Export a single frame read from one vtk file as an image.
@@ -112,11 +128,24 @@ def export_single_vtk_file(
         vtk_path (Path): Path to the vtk file
         type_colors (dict[int, np.ndarray]): Mapping from cell type id to RGB color
         out_dir (Path): Directory to write the rendered image to
-        scale (float): Upscaling factor
+        scale (float): Upscaling factor of the rendered image
+        grid_scale (int, optional): Upscaling factor of the lattice before
+            rendering. Defaults to 1.
+        neighbour_order (int, optional): Neighbour order for finding the
+            outlines. Defaults to 1.
+        line_width (int, optional): Outline width in pixels. Defaults to 2.
     """
     frame = read_vtk_frame(vtk_path)
     out_dir.mkdir(parents=True, exist_ok=True)
-    _save_frame(frame, type_colors, out_dir, scale)
+    _save_frame(
+        frame,
+        type_colors,
+        out_dir,
+        scale,
+        grid_scale=grid_scale,
+        neighbour_order=neighbour_order,
+        line_width=line_width,
+    )
 
 
 def export_frames_from_vtk_directory(
@@ -125,6 +154,9 @@ def export_frames_from_vtk_directory(
     type_colors: dict[int, np.ndarray],
     out_dir: Path,
     scale: float,
+    grid_scale: int = 1,
+    neighbour_order: int = 1,
+    line_width: int = 2,
 ) -> None:
     """
     Export a selection of frames read from a directory of vtk files as images.
@@ -135,7 +167,12 @@ def export_frames_from_vtk_directory(
             frames to export
         type_colors (dict[int, np.ndarray]): Mapping from cell type id to RGB color
         out_dir (Path): Directory to write the rendered images to
-        scale (float): Upscaling factor
+        scale (float): Upscaling factor of the rendered image
+        grid_scale (int, optional): Upscaling factor of the lattice before
+            rendering. Defaults to 1.
+        neighbour_order (int, optional): Neighbour order for finding the
+            outlines. Defaults to 1.
+        line_width (int, optional): Outline width in pixels. Defaults to 2.
     """
     vtk_files = list_vtk_files(input_path)
     _validate_indices(indices, len(vtk_files))
@@ -143,7 +180,15 @@ def export_frames_from_vtk_directory(
     out_dir.mkdir(parents=True, exist_ok=True)
     for i in tqdm(sorted(indices)):
         frame = read_vtk_frame(vtk_files[i])
-        _save_frame(frame, type_colors, out_dir, scale)
+        _save_frame(
+            frame,
+            type_colors,
+            out_dir,
+            scale,
+            grid_scale=grid_scale,
+            neighbour_order=neighbour_order,
+            line_width=line_width,
+        )
 
 
 def export_frames_from_h5_file(
@@ -152,6 +197,9 @@ def export_frames_from_h5_file(
     type_colors: dict[int, np.ndarray],
     out_dir: Path,
     scale: float,
+    grid_scale: int = 1,
+    neighbour_order: int = 1,
+    line_width: int = 2,
 ) -> None:
     """
     Export a selection of frames read from a single h5 lattice file as images.
@@ -161,7 +209,12 @@ def export_frames_from_h5_file(
         indices (set[int]): 0-based positions (in file order) of the frames to export
         type_colors (dict[int, np.ndarray]): Mapping from cell type id to RGB color
         out_dir (Path): Directory to write the rendered images to
-        scale (float): Upscaling factor
+        scale (float): Upscaling factor of the rendered image
+        grid_scale (int, optional): Upscaling factor of the lattice before
+            rendering. Defaults to 1.
+        neighbour_order (int, optional): Neighbour order for finding the
+            outlines. Defaults to 1.
+        line_width (int, optional): Outline width in pixels. Defaults to 2.
     """
     frames = read_h5_lattice_snapshots(input_path, frame_indices=indices)
     if len(frames) < len(indices):
@@ -172,7 +225,15 @@ def export_frames_from_h5_file(
 
     out_dir.mkdir(parents=True, exist_ok=True)
     for frame in tqdm(frames):
-        _save_frame(frame, type_colors, out_dir, scale)
+        _save_frame(
+            frame,
+            type_colors,
+            out_dir,
+            scale,
+            grid_scale=grid_scale,
+            neighbour_order=neighbour_order,
+            line_width=line_width,
+        )
 
 
 def _save_frame(
@@ -180,8 +241,18 @@ def _save_frame(
     type_colors: dict[int, np.ndarray],
     out_dir: Path,
     scale: float,
+    grid_scale: int = 1,
+    neighbour_order: int = 1,
+    line_width: int = 2,
 ) -> None:
-    image = render_frame_image(frame, type_colors, scale)
+    image = render_frame_image(
+        frame,
+        type_colors,
+        scale,
+        grid_scale=grid_scale,
+        neighbour_order=neighbour_order,
+        line_width=line_width,
+    )
     image.save(out_dir / f"frame_{frame.step}.png")
 
 

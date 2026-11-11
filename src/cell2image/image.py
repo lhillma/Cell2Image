@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 from numba import njit, uint64
 
+from .neighbourhood import neighbourhood_offsets
 from .types import SimulationFrame
 
 
@@ -84,6 +85,8 @@ def frame_to_image(
     colors: dict[int, np.ndarray],
     plot_cell_outlines: bool = True,
     plot_nuclear_outlines: bool = True,
+    neighbour_order: int = 1,
+    line_width: int = 2,
 ) -> np.ndarray:
     """
     Convert a SimulationFrame to an image with cell outlines
@@ -98,12 +101,26 @@ def frame_to_image(
             Defaults to True.
         plot_nuclear_outlines (bool, optional): Whether to include nuclear
             outlines. Defaults to True.
+        neighbour_order (int, optional): Neighbour order in which a pixel looks
+            for pixels of other cells (see `get_cell_outlines`). Defaults to 1.
+        line_width (int, optional): Width of the outlines in pixels (see
+            `get_cell_outlines`). Defaults to 2.
 
     Returns:
         np.ndarray: The image with cell outlines as RGB array
     """
-    cell_outlines = get_cell_outlines(frame.cluster_id, frame.cluster_id.shape)
-    all_outlines = get_cell_outlines(frame.cell_id, frame.cell_id.shape)
+    cell_outlines = get_cell_outlines(
+        frame.cluster_id,
+        frame.cluster_id.shape,
+        neighbour_order=neighbour_order,
+        line_width=line_width,
+    )
+    all_outlines = get_cell_outlines(
+        frame.cell_id,
+        frame.cell_id.shape,
+        neighbour_order=neighbour_order,
+        line_width=line_width,
+    )
     nuclear_outlines = (all_outlines == cell_outlines).astype(np.uint8)
     outlines = (
         cell_outlines
@@ -125,6 +142,35 @@ def frame_to_image(
 
     outlines = np.clip(outlines[:, :, None] * sum(colored_types), 0, 1)
     return outlines
+
+
+def upscale_frame(frame: SimulationFrame, grid_scale: int) -> SimulationFrame:
+    """
+    Upscale the lattice of a frame by an integer factor
+
+    Every lattice site becomes a `grid_scale` x `grid_scale` block of sites with
+    the same cell type, cell id and cluster id. Rendering the upscaled frame
+    (instead of upscaling the rendered image) keeps the outlines thin relative to
+    the cells, since their width is set in pixels of the rendered lattice.
+
+    Args:
+        frame (SimulationFrame): The frame to upscale
+        grid_scale (int): Upscaling factor (>= 1)
+
+    Returns:
+        SimulationFrame: The upscaled frame (the input frame if grid_scale is 1)
+    """
+    if grid_scale < 1 or int(grid_scale) != grid_scale:
+        raise ValueError(f"grid_scale must be a positive integer, got {grid_scale}")
+    if grid_scale == 1:
+        return frame
+
+    def up(field: np.ndarray) -> np.ndarray:
+        return field.repeat(grid_scale, axis=0).repeat(grid_scale, axis=1)
+
+    return SimulationFrame(
+        frame.step, up(frame.cell_type), up(frame.cell_id), up(frame.cluster_id)
+    )
 
 
 def crop_cell_neighbourhood(
@@ -285,50 +331,95 @@ def get_cell_neighbour_ids(
     return neighbours
 
 
-@njit
 def get_cell_outlines(
-    cell_id: np.ndarray, dim: tuple[int, int], cell_ids: np.ndarray | None = None
+    cell_id: np.ndarray,
+    dim: tuple[int, int],
+    cell_ids: np.ndarray | None = None,
+    neighbour_order: int = 1,
+    line_width: int = 2,
 ) -> np.ndarray:
     """
     Extract an image of the cell outlines from a simulation frame.
 
     In a Cellular Potts model, each pixel is assigned a cell-id value, which
-    determines which cell occupies this pixel at a given time. In order to
-    determine the outlines, this function takes the cell-id values and compares
-    the neighbouring cell-ids with the cell-id at each pixel. If all neighbours
-    have the same cell-id as the pixel itself, the pixel is in the center of a
-    cell and thus remains white. If there is a neighbour with a different
-    cell-id, the pixel is part of the boundary and therefore set to black.
-    Applying this function results in a 2px wide boundary of the cells.
+    determines which cell occupies this pixel at a given time. A pixel is part of
+    an outline (set to 0, black) if a pixel of another cell lies in its
+    neighbourhood; otherwise it is in the interior of a cell and remains 1
+    (white).
+
+    The neighbourhood is that of the given neighbour order (1: von Neumann,
+    2: Moore, ...; see `cell2image.neighbourhood`), grown by `line_width // 2`
+    steps. Both cells along a boundary are marked, so the outline is
+    `line_width` pixels wide in the direction of a lattice axis. For an odd
+    `line_width`, the cell with the larger id looks one step further, which adds
+    the remaining pixel on its side only. With the defaults (neighbour_order=1,
+    line_width=2) this marks every pixel with a von Neumann neighbour of another
+    cell, giving a 2px wide outline; line_width=1 gives a 1px wide one.
+
+    Pixels outside the array are not considered (no periodic boundaries).
 
     Args:
         cell_id (np.ndarray): The cell ids
         dim (tuple[int, int]): The dimensions of the image
         cell_ids (np.ndarray, optional): The cell ids to extract the outlines for.
-            Defaults to None.
+            Defaults to None (all cells).
+        neighbour_order (int, optional): Neighbour order in which a pixel looks
+            for pixels of other cells. Defaults to 1.
+        line_width (int, optional): Width of the outlines in pixels (>= 1).
+            Defaults to 2.
 
     Returns:
         np.ndarray: The extracted image
+    """
+    if line_width < 1:
+        raise ValueError(f"line_width must be >= 1, got {line_width}")
+    near = neighbourhood_offsets(neighbour_order, line_width // 2)
+    # odd widths: the cell with the larger id also checks one step further
+    far = (
+        neighbourhood_offsets(neighbour_order, line_width // 2 + 1)
+        if line_width % 2
+        else np.zeros((0, 2), dtype=np.int64)
+    )
+    return _cell_outlines(cell_id, dim, cell_ids, near, far)
+
+
+@njit
+def _cell_outlines(
+    cell_id: np.ndarray,
+    dim: tuple[int, int],
+    cell_ids: np.ndarray | None,
+    near: np.ndarray,
+    far: np.ndarray,
+) -> np.ndarray:
+    """
+    Outline image of `get_cell_outlines`.
+
+    A pixel is an outline pixel if a pixel at one of the `near` offsets belongs to
+    another cell, or one at the `far` offsets belongs to a cell with a smaller id.
     """
     img = np.ones(dim, dtype=np.uint8)
 
     for x in range(dim[0]):
         for y in range(dim[1]):
-            if cell_ids is not None and cell_id[x, y] not in cell_ids:
-                img[x, y] = 1
+            own = cell_id[x, y]
+            if cell_ids is not None and own not in cell_ids:
                 continue
-            if x > 0 and cell_id[x - 1, y] != cell_id[x, y]:
+            found = False
+            for k in range(near.shape[0]):
+                nx = x + near[k, 0]
+                ny = y + near[k, 1]
+                if 0 <= nx < dim[0] and 0 <= ny < dim[1] and cell_id[nx, ny] != own:
+                    found = True
+                    break
+            if not found:
+                for k in range(far.shape[0]):
+                    nx = x + far[k, 0]
+                    ny = y + far[k, 1]
+                    if 0 <= nx < dim[0] and 0 <= ny < dim[1] and cell_id[nx, ny] < own:
+                        found = True
+                        break
+            if found:
                 img[x, y] = 0
-                continue
-            if x < dim[0] - 1 and cell_id[x + 1, y] != cell_id[x, y]:
-                img[x, y] = 0
-                continue
-            if y > 0 and cell_id[x, y - 1] != cell_id[x, y]:
-                img[x, y] = 0
-                continue
-            if y < dim[1] - 1 and cell_id[x, y + 1] != cell_id[x, y]:
-                img[x, y] = 0
-                continue
 
     return img
 
