@@ -6,11 +6,23 @@ model to (binary) images.
 
 ## Installation
 
-Install the package with pip:
+Install the package with pip, including all optional features:
 
 ```bash
-pip install git+https://github.com/lhillma/Cell2Image.git
+pip install "cell2image[all] @ git+https://github.com/lhillma/Cell2Image.git"
 ```
+
+The core package (lattice data, cell shapes and the perimeter estimator) only needs
+numpy, numba, scipy and h5py. The optional features are:
+
+| extra | enables | dependencies |
+|---|---|---|
+| `render` | images, frames and videos, the `c2i-video` and `c2i-frame` commands | click, ffmpy, matplotlib, pillow, tqdm |
+| `vtk` | reading `.vtk` files (h5 files work without it) | vtk |
+| `all` | both | |
+
+For example, `pip install "cell2image[render] @ git+https://github.com/lhillma/Cell2Image.git"`
+renders h5 lattice files without installing vtk.
 
 To use the video creation functionality, you need to install the `ffmpeg` package.
 On Ubuntu, you can install it with:

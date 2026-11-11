@@ -9,18 +9,24 @@ description = "Toolbox for converting cell data to images"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "click",
-    "ffmpy",
     "h5py",
-    "matplotlib",
     "numba",
     "numpy",
-    "pillow",
-    "scikit-image",
     "scipy",
-    "tqdm",
-    "vtk",
 ]
+
+[project.optional-dependencies]
+# images, frames and videos, including the c2i-video and c2i-frame commands
+render = [
+    "click",
+    "ffmpy",
+    "matplotlib",
+    "pillow",
+    "tqdm",
+]
+# reading .vtk input (h5 input works without it)
+vtk = ["vtk"]
+all = ["cell2image[render,vtk]"]
 
 [project.scripts]
 c2i-video = "cell2image.video_renderer:main"
